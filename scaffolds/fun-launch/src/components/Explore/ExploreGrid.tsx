@@ -1,3 +1,4 @@
+'use client';
 import { useDataStream } from '@/contexts/DataStreamProvider';
 import { useEffect } from 'react';
 import { ExploreTab } from './types';
@@ -9,9 +10,10 @@ import { useBreakpoint } from '@/lib/device';
 
 type ExploreGridProps = {
   className?: string;
+  searchQuery?: string; // ← neu: Suchbegriff von index.tsx
 };
 
-const ExploreGrid = ({ className }: ExploreGridProps) => {
+const ExploreGrid = ({ className, searchQuery = '' }: ExploreGridProps) => {
   const { subscribeRecentTokenList, unsubscribeRecentTokenList } = useDataStream();
   const { mobileTab } = useExplore();
   const breakpoint = useBreakpoint();
@@ -33,11 +35,23 @@ const ExploreGrid = ({ className }: ExploreGridProps) => {
       )}
     >
       <MobileExploreTabs />
-
       <div className="contents divide-x divide-neutral-850">
-        <ExploreColumn tab={isMobile ? mobileTab : ExploreTab.NEW} />
-        {!isMobile && <ExploreColumn tab={ExploreTab.GRADUATING} />}
-        {!isMobile && <ExploreColumn tab={ExploreTab.GRADUATED} />}
+        <ExploreColumn
+          tab={isMobile ? mobileTab : ExploreTab.NEW}
+          searchQuery={searchQuery} // ← Prop weitergeben
+        />
+        {!isMobile && (
+          <ExploreColumn
+            tab={ExploreTab.GRADUATING}
+            searchQuery={searchQuery} // ← Prop weitergeben
+          />
+        )}
+        {!isMobile && (
+          <ExploreColumn
+            tab={ExploreTab.GRADUATED}
+            searchQuery={searchQuery} // ← Prop weitergeben
+          />
+        )}
       </div>
     </div>
   );

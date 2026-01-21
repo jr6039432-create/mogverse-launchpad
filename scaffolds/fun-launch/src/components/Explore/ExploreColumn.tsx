@@ -1,5 +1,4 @@
 'use client';
-
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { categorySortBy, categorySortDir, createPoolSorter } from '@/components/Explore/pool-utils';
@@ -14,6 +13,7 @@ import { PausedIndicator } from './PausedIndicator';
 
 type ExploreColumnProps = {
   tab: ExploreTab;
+  searchQuery?: string; // ← neu: Suchbegriff von index.tsx
 };
 
 export const ExploreTabTitleMap: Record<ExploreTab, string> = {
@@ -22,7 +22,7 @@ export const ExploreTabTitleMap: Record<ExploreTab, string> = {
   [ExploreTab.GRADUATED]: `Bonded`,
 };
 
-export const ExploreColumn: React.FC<ExploreColumnProps> = ({ tab }) => {
+export const ExploreColumn: React.FC<ExploreColumnProps> = ({ tab, searchQuery = '' }) => {
   const { pausedTabs, setTabPaused, request } = useExplore();
   const isPaused = pausedTabs[tab];
   const setIsPaused = useCallback(
@@ -48,6 +48,7 @@ export const ExploreColumn: React.FC<ExploreColumnProps> = ({ tab }) => {
           request={request}
           isPaused={isPaused}
           setIsPaused={setIsPaused}
+          searchQuery={searchQuery} // ← Prop weitergeben
         />
       </div>
     </div>
@@ -59,27 +60,24 @@ type TokenCardListContainerProps = {
   request: Required<GemsTokenListQueryArgs>;
   isPaused: boolean;
   setIsPaused: (isPaused: boolean) => void;
+  searchQuery?: string; // ← neu
 };
 
 const timeframe = EXPLORE_FIXED_TIMEFRAME;
 
 const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
-  ({ tab, request, isPaused, setIsPaused }) => {
+  ({ tab, request, isPaused, setIsPaused, searchQuery = '' }) => {
     const queryClient = useQueryClient();
     const breakpoint = useBreakpoint();
     const isMobile = breakpoint === 'md' || breakpoint === 'sm' || breakpoint === 'xs';
-
     const listRef = useRef<HTMLDivElement>(null);
-
     const { data: currentData, status } = useExploreGemsTokenList((data) => data[tab]);
-
     const [snapshotData, setSnapshotData] = useState<Pool[]>();
 
     const handleMouseEnter = useCallback(() => {
       if (!isHoverableDevice() || status !== 'success') {
         return;
       }
-
       // When clicking elements (copyable) it triggers mouse enter again
       // We don't want to re-snapshot data if already paused
       if (!isPaused) {
@@ -90,7 +88,6 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
 
     const handleMouseLeave = useCallback(() => {
       if (!isHoverableDevice()) return;
-
       setIsPaused(false);
     }, [setIsPaused]);
 
@@ -104,9 +101,7 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
         (prev?: QueryData<typeof ApeQueries.gemsTokenList>) => {
           const prevPools = prev?.[tab]?.pools;
           if (!prevPools) return;
-
           const pools = [...prevPools];
-
           // Re-sort
           const sortDir = categorySortDir(tab);
           let sortBy: TokenListSortByField | undefined;
@@ -124,7 +119,6 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
             );
             pools.sort(sorter);
           }
-
           return {
             ...prev,
             [tab]: {
@@ -142,9 +136,7 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
 
     const handleScroll = useCallback(() => {
       if (!isMobile || !listRef.current) return;
-
       const top = listRef.current.getBoundingClientRect().top;
-
       if (top <= 0) {
         // Only snapshot on initial pause
         if (!isPaused) {
@@ -159,10 +151,8 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
     // Handle scroll pausing on mobile
     useEffect(() => {
       if (!isMobile) return;
-
       // Initial check
       handleScroll();
-
       window.addEventListener('scroll', handleScroll, { passive: true });
       return () => {
         window.removeEventListener('scroll', handleScroll);
@@ -171,7 +161,7 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
     }, [isMobile, setIsPaused, handleScroll]);
 
     // Map snapshot data to current data for most recent updated data
-    const displayData = isPaused
+    let displayData = isPaused
       ? snapshotData?.map((snapshotPool) => {
           const current = currentData?.pools.find(
             (p) => p.baseAsset.id === snapshotPool.baseAsset.id
@@ -182,6 +172,18 @@ const TokenCardListContainer: React.FC<TokenCardListContainerProps> = memo(
           return snapshotPool;
         })
       : currentData?.pools;
+
+    // Filter-Logik: Nur wenn searchQuery gesetzt ist
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      displayData = displayData?.filter(pool => {
+        return (
+          pool.baseAsset?.name?.toLowerCase().includes(q) ||
+          pool.baseAsset?.symbol?.toLowerCase().includes(q) ||
+          pool.baseAsset?.id?.toLowerCase().includes(q) // CA/Mint
+        );
+      });
+    }
 
     return (
       <TokenCardList
