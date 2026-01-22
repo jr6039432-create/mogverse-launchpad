@@ -25,7 +25,7 @@ const Explore = () => {
         {/* Buy $MOGY Button mittig – kleiner & dezenter */}
         <div className="text-center mb-16">
           <a
-            href="https://jup.ag/swap/SOL-njKnom8XKGy4hUqJeT4rABeFWGyTJWWSGTEf7Z1mogy"
+            href="https://jup.ag/?sell=So11111111111111111111111111111111111111112&buy=njKnom8XKGy4hUqJeT4rABeFWGyTJWWSGTEf7Z1mogy"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6 py-2.5 rounded-xl text-base font-bold text-white shadow-md transition transform hover:scale-105"
@@ -70,7 +70,7 @@ const Explore = () => {
               className="h-10 w-10 opacity-90 hover:opacity-100 transition bg-transparent mb-3"
             />
           </a>
-          <p>©2026 by Mogy. Powered by Meteora.</p>
+          <p>©2026 by Mogy.</p>
         </div>
       </div>
     </ExploreContext>
