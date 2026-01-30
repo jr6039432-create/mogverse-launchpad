@@ -23,7 +23,7 @@ if (
 }
 
 const PRIVATE_R2_URL = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-const PUBLIC_R2_URL = 'https://pub-85c7f5f0dc104dc784e656b623d999e5.r2.dev';
+const PUBLIC_R2_URL = 'https://pub-0891aa35b71548069b2a4ffad83a65f1.r2.dev';
 
 // Types
 type UploadRequest = {
@@ -61,15 +61,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { userWallet } = req.body;
+  const userIdFromHeader = req.headers['x-user-id'];
+
+  if (!userWallet || userWallet !== userIdFromHeader) {
+    return res.status(401).json({ error: 'Unauthorized: User ID mismatch' });
+  }
+
   try {
     const { tokenLogo, tokenName, tokenSymbol, mint, userWallet } = req.body as UploadRequest;
 
-    // Validate required fields
     if (!tokenLogo || !tokenName || !tokenSymbol || !mint || !userWallet) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Upload image and metadata
     const imageUrl = await uploadImage(tokenLogo, mint);
     if (!imageUrl) {
       return res.status(400).json({ error: 'Failed to upload image' });
@@ -80,7 +85,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Failed to upload metadata' });
     }
 
-    // Create pool transaction
     const poolTx = await createPoolTransaction({
       mint,
       tokenName,
@@ -111,7 +115,6 @@ async function uploadImage(tokenLogo: string, mint: string): Promise<string | fa
   }
 
   const [, contentType, base64Data] = matches;
-
   if (!contentType || !base64Data) {
     return false;
   }
@@ -121,7 +124,7 @@ async function uploadImage(tokenLogo: string, mint: string): Promise<string | fa
 
   try {
     await uploadToR2(fileBuffer, contentType, fileName);
-    return `${PUBLIC_R2_URL}/${fileName}`;
+    return `${PUBLIC_R2_URL}/${fileName}`; // <-- Hier die Backticks hinzugefügt
   } catch (error) {
     console.error('Error uploading image:', error);
     return false;
@@ -134,11 +137,12 @@ async function uploadMetadata(params: MetadataUploadParams): Promise<string | fa
     symbol: params.tokenSymbol,
     image: params.image,
   };
+
   const fileName = `metadata/${params.mint}.json`;
 
   try {
     await uploadToR2(Buffer.from(JSON.stringify(metadata, null, 2)), 'application/json', fileName);
-    return `${PUBLIC_R2_URL}/${fileName}`;
+    return `${PUBLIC_R2_URL}/${fileName}`; // <-- Hier die Backticks hinzugefügt
   } catch (error) {
     console.error('Error uploading metadata:', error);
     return false;
@@ -198,6 +202,5 @@ async function createPoolTransaction({
   const { blockhash } = await connection.getLatestBlockhash();
   poolTx.feePayer = new PublicKey(userWallet);
   poolTx.recentBlockhash = blockhash;
-
   return poolTx;
 }

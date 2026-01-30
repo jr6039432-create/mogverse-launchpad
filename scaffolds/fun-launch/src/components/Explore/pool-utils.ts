@@ -215,36 +215,43 @@ export function getOrganicScoreColorCn(label: 'high' | 'medium' | 'low') {
 
   return 'text-neutral-400';
 }
+export function formatAssetAsTokenInfo(asset: Asset | undefined | null) {
+  // Wenn asset komplett fehlt oder null/undefined ist → sofort Fallback
+  if (!asset) {
+    return {
+      volume: undefined,
+      volumeChange: undefined,
+      mcap: 0,
+      liquidity: 0,
+    };
+  }
 
-export function formatAssetAsTokenInfo(asset: Asset) {
+  // Fallback für stats24h (verhindert undefined-Crash)
+  const stats24h = asset.stats24h || {};
+
+  // Volume mit sicherem Fallback
   const volume =
-    asset.stats24h?.buyVolume === undefined && asset.stats24h?.sellVolume === undefined
+    stats24h.buyVolume === undefined && stats24h.sellVolume === undefined
       ? undefined
-      : (asset.stats24h?.buyVolume ?? 0) + (asset.stats24h?.sellVolume ?? 0);
+      : (stats24h.buyVolume ?? 0) + (stats24h.sellVolume ?? 0);
 
-  // satifies TokenInfo
+  // Volume Change mit sicherem Fallback
+  const volumeChange =
+    stats24h.buyVolumeChange === undefined && stats24h.sellVolumeChange === undefined
+      ? undefined
+      : (stats24h.buyVolumeChange ?? 0) + (stats24h.sellVolumeChange ?? 0);
+
+  // MCAP und Liquidity mit Fallback
+  const mcap = asset.mcap ?? 0;
+  const liquidity = asset.liquidity ?? 0;
+
   return {
-    id: asset.id,
-    chainId: 101, // Solana
-    address: asset.id,
-    name: asset.name,
-    decimals: asset.decimals,
-    symbol: asset.symbol,
-    logoURI: asset.icon,
-    tags: asset.isVerified ? ['verified' as const] : [],
-    daily_volume: volume,
-    website: asset.website,
-    twitter: asset.twitter,
-    telegram: asset.telegram,
-    organicScore: asset.organicScore ?? 0,
-    organicScoreLabel: asset.organicScoreLabel,
-    ctLikes: asset.ctLikes ?? 0,
-    launchpad: asset.launchpad,
-    mcap: asset.mcap,
-    liquidity: asset.liquidity,
+    volume,
+    volumeChange,
+    mcap,
+    liquidity,
   };
 }
-
 export function formatPoolAsTokenInfo(pool: Pool) {
   const tokenInfo = formatAssetAsTokenInfo(pool.baseAsset);
   return Object.assign(tokenInfo, {

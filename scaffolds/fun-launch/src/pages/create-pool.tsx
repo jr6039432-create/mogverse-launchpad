@@ -23,7 +23,7 @@ const poolSchema = z.object({
   twitter: z.string().url({ message: 'Please enter a valid URL' }).optional().or(z.literal('')),
   telegram: z.string().url({ message: 'Please enter a valid URL' }).optional().or(z.literal('')),
   discord: z.string().url({ message: 'Please enter a valid URL' }).optional().or(z.literal('')),
-  devBuyAmountSol: z.number().min(0.001).max(50).optional(),
+  devBuyAmountSol: z.number().min(0).max(50).optional(),
 });
 
 interface FormValues {
@@ -55,31 +55,39 @@ export default function CreatePool() {
       twitter: '',
       telegram: '',
       discord: '',
-      devBuyAmountSol: 0,
+      devBuyAmountSol: undefined, // ← Kein Default 0 mehr
     } as FormValues,
     onSubmit: async ({ value }) => {
+      console.log('Launch Pool Button geklickt – onSubmit startet!');
+      console.log('Form Values:', value);
+
       try {
         setIsLoading(true);
+        toast.info('Starting pool creation...');
+
         const { tokenLogo, devBuyAmountSol = 0 } = value;
+
         if (!tokenLogo) {
           toast.error('Token logo is required');
           return;
         }
-        if (!signTransaction) {
-          toast.error('Wallet not connected');
+
+        if (!publicKey || !signTransaction) {
+          toast.error('Wallet not connected or not ready');
           return;
         }
-        // Dev Buy: Automatischer Swap SOL → $MOGY
-        if (devBuyAmountSol > 0 && publicKey) {
-          toast.info(`Swapping ${devBuyAmountSol} SOL to $MOGY for Dev Buy...`);
 
+        // Dev Buy: Automatischer Swap SOL → $MOGY
+        if (devBuyAmountSol > 0) {
+          toast.info(`Swapping ${devBuyAmountSol} SOL to $MOGY for Dev Buy...`);
           const amountLamports = Math.round(devBuyAmountSol * 1_000_000_000);
           const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${SOL_MINT.toBase58()}&outputMint=${MOGY_MINT.toBase58()}&amount=${amountLamports}&slippageBps=50`;
           const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(quoteUrl)}`;
 
           const quoteResponse = await fetch(proxyUrl, { mode: 'cors' });
-          const quoteData = await quoteResponse.json();
+          console.log('Jupiter quote response status:', quoteResponse.status);
 
+          const quoteData = await quoteResponse.json();
           if (!quoteResponse.ok || quoteData.error) {
             toast.error('Preisabfrage fehlgeschlagen. Versuche später oder direkt auf Jupiter.');
             return;
@@ -96,7 +104,6 @@ export default function CreatePool() {
           });
 
           const swapData = await swapResponse.json();
-
           if (swapData.error) {
             toast.error('Auto-Swap fehlgeschlagen: ' + (swapData.error || 'Unbekannter Fehler'));
             return;
@@ -105,13 +112,12 @@ export default function CreatePool() {
           const transaction = Transaction.from(Buffer.from(swapData.swapTransaction, 'base64'));
           const signedTransaction = await signTransaction(transaction);
           const rawTx = signedTransaction.serialize();
-
           const txid = await CONNECTION.sendRawTransaction(rawTx);
           await CONNECTION.confirmTransaction(txid);
           toast.success('Auto-Swap erfolgreich! $MOGY für Dev Buy erhalten.');
         }
 
-        // Pool erstellen (Rest wie bisher)
+        // Pool erstellen
         const reader = new FileReader();
         const base64File = await new Promise<string>((resolve) => {
           reader.onload = (e) => resolve(e.target?.result as string);
@@ -122,7 +128,10 @@ export default function CreatePool() {
 
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': publicKey.toBase58() || '',
+          },
           body: JSON.stringify({
             tokenLogo: base64File,
             mint: keyPair.publicKey.toBase58(),
@@ -134,13 +143,15 @@ export default function CreatePool() {
             telegram: value.telegram,
             discord: value.discord,
             devBuyAmountSol: value.devBuyAmountSol || 0,
-            userWallet: address,
+            userWallet: publicKey.toBase58(),
           }),
         });
 
+        console.log('Upload response status:', uploadResponse.status);
+
         if (!uploadResponse.ok) {
           const error = await uploadResponse.json();
-          throw new Error(error.error);
+          throw new Error(error.error || 'Upload failed');
         }
 
         const { poolTx } = await uploadResponse.json();
@@ -150,15 +161,20 @@ export default function CreatePool() {
 
         const sendResponse = await fetch('/api/send-transaction', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': publicKey.toBase58() || '',
+          },
           body: JSON.stringify({
             signedTransaction: signedTransaction.serialize().toString('base64'),
           }),
         });
 
+        console.log('Send response status:', sendResponse.status);
+
         if (!sendResponse.ok) {
           const error = await sendResponse.json();
-          throw new Error(error.error);
+          throw new Error(error.error || 'Send transaction failed');
         }
 
         const { success } = await sendResponse.json();
@@ -167,8 +183,8 @@ export default function CreatePool() {
           setPoolCreated(true);
         }
       } catch (error) {
-        console.error('Error creating pool:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to create pool');
+        console.error('Launch error:', error);
+        toast.error(error.message || 'Failed to create pool');
       } finally {
         setIsLoading(false);
       }
@@ -177,7 +193,10 @@ export default function CreatePool() {
       onSubmit: ({ value }) => {
         const result = poolSchema.safeParse(value);
         if (!result.success) {
-          return result.error.formErrors.fieldErrors;
+          const errors = result.error.formErrors.fieldErrors;
+          console.log('Validation errors:', errors);
+          toast.error('Form invalid: ' + Object.values(errors).flat().join(', '));
+          return errors;
         }
         return undefined;
       },
@@ -190,17 +209,14 @@ export default function CreatePool() {
         <title>Create Pool - $Mogy Mogverse</title>
         <meta name="description" content="Launch your token into the Mogverse" />
       </Head>
-
       <div className="min-h-screen bg-black text-white">
         <Header />
-
         <div className="container mx-auto px-6 mt-6 mb-8">
           <Link href="/" className="inline-flex items-center gap-3 text-cyan-400 hover:text-cyan-300 transition text-lg font-medium">
             <span className="iconify w-6 h-6 ph--arrow-left-bold" />
             Back to Home
           </Link>
         </div>
-
         <main className="container mx-auto px-6 py-12 max-w-5xl">
           <div className="mb-12 text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-4">
@@ -210,13 +226,13 @@ export default function CreatePool() {
               Launch your token into the Mogverse
             </p>
           </div>
-
           {poolCreated && !isLoading ? (
             <PoolCreationSuccess />
           ) : (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                console.log('Form submit event triggered');
                 form.handleSubmit();
               }}
               className="space-y-10"
@@ -330,7 +346,7 @@ export default function CreatePool() {
                   name: 'description',
                   children: (field) => (
                     <textarea
-                      className="w-full px-5 py-4 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition resize-none"
+                      className="w-full px-5 py-4 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition"
                       rows={5}
                       placeholder="e.g. $MOGY is the cutest memecoin on Solana. Join the Mogverse and let's go to the moon together! 🐰🌕"
                       value={field.state.value}
@@ -416,7 +432,7 @@ export default function CreatePool() {
                   children: (field) => (
                     <input
                       type="number"
-                      step="any" // Jetzt wirklich 0.001, 0.0001 usw. möglich
+                      step="any"
                       min="0"
                       max="50"
                       className="w-full px-5 py-4 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition"
@@ -436,7 +452,7 @@ export default function CreatePool() {
               {/* Creator Rewards Info */}
               <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-6 text-center text-gray-400 text-sm">
                 <p>
-                  Creators automatically receive <strong>2% trading fees</strong> on every trade (paid directly – no claiming needed) + <strong>20% of liquidity</strong> (100% permanently locked for maximum fairness and rug-protection).
+                  Creators automatically receive <strong>2% trading fees</strong> on every trade (paid directly – no claiming needed) + <strong>20% of liquidity</strong>
                 </p>
               </div>
               {/* Submit / Connect Button */}
@@ -445,7 +461,7 @@ export default function CreatePool() {
                   <Button
                     type="button"
                     onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-8 py-4 md:px-12 md:py-6 text-xl md:text-2xl font-bold rounded-xl shadow-2xl transition"
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-8 py-4 md:px-12 md:py-6 text-xl md:text-2xl font-bold text-white rounded-xl shadow-md transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Connect Wallet to Launch
                   </Button>
@@ -453,16 +469,16 @@ export default function CreatePool() {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-8 py-4 md:px-12 md:py-6 text-xl md:text-2xl font-bold rounded-xl shadow-2xl transition flex items-center gap-4"
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 px-8 py-4 md:px-12 md:py-6 text-xl md:text-2xl font-bold text-white rounded-xl shadow-md transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <>
-                        <span className="iconify ph--spinner w-8 h-8 animate-spin" />
+                        <span className="iconify ph--spinner w-8 h-8 animate-spin mr-2" />
                         Creating Pool...
                       </>
                     ) : (
                       <>
-                        <span className="iconify ph--rocket-bold w-8 h-8" />
+                        <span className="iconify ph--rocket-bold w-8 h-8 mr-2" />
                         Launch Pool
                       </>
                     )}
@@ -476,6 +492,7 @@ export default function CreatePool() {
     </>
   );
 }
+
 const PoolCreationSuccess = () => {
   return (
     <div className="bg-gray-900/50 backdrop-blur-md border border-cyan-900/30 rounded-2xl p-12 text-center shadow-2xl">

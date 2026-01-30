@@ -13,13 +13,16 @@ type PartialBaseAsset = Pick<
 >;
 
 type TokenSocialsProps = React.ComponentPropsWithoutRef<'span'> & {
-  token: PartialBaseAsset;
+  token: PartialBaseAsset | undefined | null; // ← Erweitert auf undefined/null
 };
 
 export const TokenSocials: React.FC<TokenSocialsProps> = memo(({ token, className, ...props }) => {
   const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     e.stopPropagation();
   }, []);
+
+  // Fallback: Wenn token fehlt, leere Socials
+  const safeToken = token || {};
 
   return (
     <span
@@ -33,10 +36,9 @@ export const TokenSocials: React.FC<TokenSocialsProps> = memo(({ token, classNam
         <ExternalLink
           className="group/icon"
           onClick={handleClick}
-          href={`https://x.com/search?q=${token.id}`}
+          href={`https://x.com/search?q=${safeToken.id || ''}`} // <-- Fix: safeToken.id || ''
         >
           <SearchIcon
-            // Must override the icon classes, if not we can declare on parent
             className="text-[--icon-color] opacity-60 group-hover/icon:opacity-100"
             aria-label={`Search CA on X`}
             width={12}
@@ -44,20 +46,22 @@ export const TokenSocials: React.FC<TokenSocialsProps> = memo(({ token, classNam
           />
         </ExternalLink>
       </HoverPopover>
-      {token.telegram && (
+
+      {safeToken.telegram && (
         <ExternalLink
           className="text-[--icon-color] opacity-60 hover:opacity-100"
           onClick={handleClick}
-          href={token.telegram}
+          href={safeToken.telegram}
         >
           <TelegramIcon aria-label="Telegram" />
         </ExternalLink>
       )}
-      {token.website && (
+
+      {safeToken.website && (
         <ExternalLink
           className="text-[--icon-color] opacity-60 hover:opacity-100"
           onClick={handleClick}
-          href={token.website}
+          href={safeToken.website}
         >
           <WebsiteIcon aria-label="Website" />
         </ExternalLink>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui';
+import * as ToggleGroupPrimitive from '@radix-ui/react-toggle-group'; // ← Import korrigiert (Radix ist jetzt ToggleGroupPrimitive)
 import { useExplore } from '@/contexts/ExploreProvider';
 import { ExploreTab } from './types';
 import { PausedIndicator } from './PausedIndicator';
@@ -13,16 +13,18 @@ export const ExploreTabTitleMap: Record<ExploreTab, string> = {
 
 export const MobileExploreTabs = () => {
   const { mobileTab, setMobileTab, pausedTabs } = useExplore();
+
   return (
     <div className="sticky inset-x-0 top-0 z-20 border-b border-neutral-850 shadow-md shadow-neutral-950 lg:hidden bg-black">
       <div className="px-2 py-1">
-        <ToggleGroupPrimitive.Root
-          className="flex h-9 w-full min-w-fit items-center gap-1 text-sm"
-          type="single"
-          value={mobileTab}
-          onValueChange={(value) => {
-            if (value) {
-              setMobileTab(value as ExploreTab);
+      <ToggleGroupPrimitive.Root
+  className="flex h-9 w-full min-w-fit items-center gap-1 text-sm"
+  type="single"
+  value={mobileTab}
+  onValueChange={(value) => {
+    if (value) {
+      setMobileTab(value as ExploreTab);
+      console.log('Tab gewechselt zu:', value); // ← Debug
             }
           }}
         >

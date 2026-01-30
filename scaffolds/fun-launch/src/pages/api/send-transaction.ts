@@ -16,6 +16,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+const userIdFromHeader = req.headers['x-user-id'];
+
+if (!userIdFromHeader) {
+  return res.status(401).json({ error: 'Unauthorized: Missing user ID header' });
+}
+
+// Optional: Log zur Sicherheit
+console.log('Authorized user ID from header:', userIdFromHeader);
 
   console.log('req.body', req.body);
   try {

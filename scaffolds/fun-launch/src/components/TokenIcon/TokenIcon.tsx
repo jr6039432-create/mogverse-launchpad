@@ -34,12 +34,11 @@ export const TrenchesPoolTokenIcon: React.FC<TrenchesPoolTokenIconProps> = ({
 
   const radius = baseSize / 2 + gap + STROKE_WIDTH / 2;
   const circumference = radius * CIRCLE_CIRCUMFERENCE_FACTOR;
+// Graduated pools have no bonding curve value
+const bondingCurve = pool.bondingCurve ?? (pool.baseAsset?.graduatedPool === true ? 100 : 0);
 
-  // Graduated pools have no bonding curve value
-  const bondingCurve = pool.bondingCurve ?? (pool.baseAsset.graduatedPool ? 100 : 0);
-
-  const progress = bondingCurve / 100;
-  const clampedProgress = Math.max(0, Math.min(1, progress));
+const progress = bondingCurve / 100;
+const clampedProgress = Math.max(0, Math.min(1, progress));
   const dashOffset = circumference * (1 - clampedProgress);
   const dashArray = circumference;
 

@@ -9,7 +9,7 @@ const Explore = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <ExploreContext>
+    <DataStreamProvider> {/* Provider um den gesamten Inhalt */}
       <div className="py-8 bg-black">
         {/* Preisanzeige mittig – kleiner */}
         <div className="text-center mb-8">
@@ -25,7 +25,7 @@ const Explore = () => {
         {/* Buy $MOGY Button mittig – kleiner & dezenter */}
         <div className="text-center mb-16">
           <a
-            href="https://jup.ag/?sell=So11111111111111111111111111111111111111112&buy=njKnom8XKGy4hUqJeT4rABeFWGyTJWWSGTEf7Z1mogy"
+            href="https://jup.ag/swap/SOL-njKnom8XKGy4hUqJeT4rABeFWGyTJWWSGTEf7Z1mogy"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6 py-2.5 rounded-xl text-base font-bold text-white shadow-md transition transform hover:scale-105"
@@ -34,34 +34,35 @@ const Explore = () => {
           </a>
         </div>
 
-{/* Kleines Suchfeld – responsiv: Desktop schmaler, Mobil vollbreit */}
-<div className="flex justify-end mb-6 px-4 md:px-0">
-  <div className="relative w-full md:w-80 lg:w-64 xl:w-56"> {/* ← schmaler auf Desktop */}
-    <input
-      type="text"
-      placeholder="Search name, symbol or CA..."
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value.trim())}
-      className="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition text-sm pl-10 pr-10"
-    />
-    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-      <span className="iconify w-4 h-4 md:w-5 md:h-5 ph--magnifying-glass-bold" />
-    </span>
-    {searchQuery && (
-      <button
-        onClick={() => setSearchQuery('')}
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white"
-      >
-        <span className="iconify w-4 h-4 md:w-5 md:h-5 ph--x-bold" />
-      </button>
-    )}
-  </div>
-</div>
+        {/* Kleines Suchfeld – responsiv */}
+        <div className="flex justify-end mb-6 px-4 md:px-0">
+          <div className="relative w-full md:w-80 lg:w-64 xl:w-56">
+            <input
+              type="text"
+              placeholder="Search name, symbol or CA..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value.trim())}
+              className="w-full px-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition text-sm pl-10 pr-10"
+            />
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+              <span className="iconify w-4 h-4 md:w-5 md:h-5 ph--magnifying-glass-bold" />
+            </span>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white"
+              >
+                <span className="iconify w-4 h-4 md:w-5 md:h-5 ph--x-bold" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Original Grid */}
-        <ExploreGrid className="flex-1" />
+        <ExploreGrid className="flex-1" searchQuery={searchQuery} />
 
-        {/* Footer-X unten mittig + Branding */}
+
+        {/* Footer */}
         <div className="flex flex-col items-center mt-12 text-gray-500 text-sm bg-black pt-6 pb-6">
           <a href="https://x.com/mogytoken" target="_blank" rel="noopener noreferrer">
             <img
@@ -73,7 +74,7 @@ const Explore = () => {
           <p>©2026 by Mogy.</p>
         </div>
       </div>
-    </ExploreContext>
+    </DataStreamProvider>
   );
 };
 
@@ -98,7 +99,6 @@ const PriceDisplay = () => {
         setPriceError('Preisabruf fehlgeschlagen');
       }
     };
-
     fetchPrice();
     const interval = setInterval(fetchPrice, 10000);
     return () => clearInterval(interval);
@@ -107,17 +107,6 @@ const PriceDisplay = () => {
   if (priceError) return <span className="text-red-400">{priceError}</span>;
   if (mogyPrice == null) return 'Loading...';
   return `$${mogyPrice.toFixed(8)} (${(mogyPrice / 150).toFixed(8)} SOL)`;
-};
-
-const ExploreContext = ({ children }: PropsWithChildren) => {
-  return (
-    <div className="flex flex-col h-full">
-      <ExploreMsgHandler />
-      <ExploreProvider>
-        <DataStreamProvider>{children}</DataStreamProvider>
-      </ExploreProvider>
-    </div>
-  );
 };
 
 export default Explore;
